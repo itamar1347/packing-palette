@@ -8,7 +8,7 @@ const CM = 'https://commons.wikimedia.org/w/api.php';
 const api = async (base, params, signal) => {
   const qs = new URLSearchParams({ format: 'json', origin: '*', ...params });
   const r = await fetch(`${base}?${qs}`, { signal });
-  if (!r.ok) throw new Error('Wikimedia did not answer.');
+  if (!r.ok) throw new Error('ויקימדיה לא ענתה.');
   return r.json();
 };
 
@@ -21,7 +21,8 @@ function km(a, b, c, d) {
 }
 
 async function findArticle(place, signal) {
-  const q = place.wiki || `${place.name} ${place.admin1 || ''} ${place.country}`.replace(/\s+/g, ' ');
+  const en = place.nameEn || place.name;
+  const q = place.wiki || `${en} ${place.admin1En || ''} ${place.countryEn || ''}`.replace(/\s+/g, ' ').trim();
   const j = await api(WP, {
     action: 'query', generator: 'search', gsrsearch: q, gsrlimit: '8', prop: 'pageprops|pageimages|coordinates',
     piprop: 'name', ppprop: 'wikibase_item', colimit: 'max',
@@ -29,7 +30,7 @@ async function findArticle(place, signal) {
   const pages = Object.values((j.query && j.query.pages) || {}).sort((a, b) => a.index - b.index);
   const skip = /\b(airport|station|stadium|university|county|district|municipality|province|list of|history of|people|election|club|f\.c\.)\b/i;
   const near = p => p.coordinates && p.coordinates[0] && km(place.lat, place.lon, p.coordinates[0].lat, p.coordinates[0].lon) < (place.wiki ? 200 : 60);
-  const named = p => p.title.toLowerCase().startsWith(place.name.toLowerCase().split(',')[0]);
+  const named = p => p.title.toLowerCase().startsWith(en.toLowerCase().split(',')[0]);
   return pages.find(p => !skip.test(p.title) && named(p) && near(p))
     || pages.find(p => !skip.test(p.title) && near(p))
     || pages.find(p => !skip.test(p.title) && named(p))
@@ -51,7 +52,7 @@ async function wikidataFiles(qid, signal) {
 }
 
 async function commonsFiles(place, signal) {
-  const name = (place.wiki || place.name).replace(/"/g, '');
+  const name = (place.wiki || place.nameEn || place.name).replace(/"/g, '');
   const j = await api(CM, {
     action: 'query', list: 'search', srnamespace: '6', srlimit: '30',
     srsearch: `intitle:"${name}" incategory:Featured_pictures_on_Wikimedia_Commons|Quality_images filetype:bitmap`,
@@ -87,8 +88,8 @@ async function fileInfo(files, signal) {
       const m = ii.extmetadata || {};
       out.set(p.title.replace(/^File:/, ''), {
         file: p.title.replace(/^File:/, ''), src: ii.thumburl || ii.url, width: ii.width, height: ii.height, mime: ii.mime,
-        page: ii.descriptionurl, artist: stripHtml(m.Artist && m.Artist.value) || 'Unknown photographer',
-        license: stripHtml(m.LicenseShortName && m.LicenseShortName.value) || 'See source',
+        page: ii.descriptionurl, artist: stripHtml(m.Artist && m.Artist.value) || 'Unknown',
+        license: stripHtml(m.LicenseShortName && m.LicenseShortName.value) || '',
         caption: stripHtml((m.ObjectName && m.ObjectName.value) || '') || p.title.replace(/^File:/, '').replace(/\.[a-z]+$/i, '').replace(/_/g, ' '),
       });
     }

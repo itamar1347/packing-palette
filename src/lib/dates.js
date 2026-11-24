@@ -33,20 +33,31 @@ export function nextOccurrence(month, day) {
   const cand = `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   return cand >= t ? cand : `${y + 1}-${cand.slice(5)}`;
 }
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** Keep a number run ("26°", "16–31") left-to-right inside Hebrew text. */
+export const ltr = s => '⁦' + s + '⁩';
+
+export const MONTHS_HE = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+const DAYS_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+/** "16 ביולי" */
 export function fmtShort(s) {
   const d = parseISO(s);
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+  return `${d.getUTCDate()} ב${MONTHS_HE[d.getUTCMonth()]}`;
 }
+/** "16–31 ביולי 2027" or "28 בדצמבר 2026 – 4 בינואר 2027" */
 export function fmtRange(a, b) {
   const da = parseISO(a), db = parseISO(b);
   const sameYear = da.getUTCFullYear() === db.getUTCFullYear();
   if (da.getUTCMonth() === db.getUTCMonth() && sameYear) {
-    return `${MONTHS_LONG[da.getUTCMonth()]} ${da.getUTCDate()}–${db.getUTCDate()}, ${db.getUTCFullYear()}`;
+    return `${ltr(`${da.getUTCDate()}–${db.getUTCDate()}`)} ב${MONTHS_HE[da.getUTCMonth()]} ${db.getUTCFullYear()}`;
   }
-  return `${fmtShort(a)}${sameYear ? '' : ', ' + da.getUTCFullYear()} – ${fmtShort(b)}, ${db.getUTCFullYear()}`;
+  return `${fmtShort(a)}${sameYear ? '' : ' ' + da.getUTCFullYear()} – ${fmtShort(b)} ${db.getUTCFullYear()}`;
+}
+/** "יום שלישי, 24 בנובמבר" */
+export function fmtDayLong(s) {
+  return `יום ${DAYS_HE[parseISO(s).getUTCDay()]}, ${fmtShort(s)}`;
 }
 export function weekdayLetter(s) {
-  return 'SMTWTFS'[parseISO(s).getUTCDay()];
+  return 'אבגדהוש'[parseISO(s).getUTCDay()];
 }

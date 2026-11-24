@@ -1,6 +1,6 @@
 // Weather for the trip dates. Trips inside the next 16 days use the live forecast;
 // later trips use what actually happened on the same dates in the three most recent years.
-import { todayISO, addDays, diffDays, shiftYears } from './dates.js';
+import { todayISO, addDays, diffDays, shiftYears, ltr } from './dates.js';
 
 const FORECAST = 'https://api.open-meteo.com/v1/forecast';
 const ARCHIVE = 'https://archive-api.open-meteo.com/v1/archive';
@@ -9,9 +9,9 @@ const DAILY = 'temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_
 async function getDaily(base, place, start, end, signal) {
   const url = `${base}?latitude=${place.lat}&longitude=${place.lon}&start_date=${start}&end_date=${end}&daily=${DAILY}&timezone=auto`;
   const r = await fetch(url, { signal });
-  if (!r.ok) throw new Error('The weather service did not answer.');
+  if (!r.ok) throw new Error('שירות מזג האוויר לא ענה.');
   const j = await r.json();
-  if (!j.daily || !j.daily.time) throw new Error('No weather data for these dates.');
+  if (!j.daily || !j.daily.time) throw new Error('אין נתוני מזג אוויר לתאריכים האלה.');
   return j.daily;
 }
 
@@ -90,21 +90,18 @@ function summarize(days, mode, years) {
 }
 
 function feel(t) {
-  if (t >= 32) return 'hot';
-  if (t >= 26) return 'warm';
-  if (t >= 19) return 'mild';
-  if (t >= 11) return 'cool';
-  if (t >= 3) return 'cold';
-  return 'freezing';
+  if (t >= 32) return 'חמים מאוד';
+  if (t >= 26) return 'חמימים';
+  if (t >= 19) return 'נעימים';
+  if (t >= 11) return 'קרירים';
+  if (t >= 3) return 'קרים';
+  return 'קפואים';
 }
 
 function headline(s, n) {
   const wetRatio = s.wetDays / n;
-  const sky = s.snowDays >= 2 ? 'Snowy' : wetRatio >= 0.5 ? 'Often wet' : wetRatio >= 0.25 ? 'Changeable' : (s.kinds.clear || 0) >= n / 2 ? 'Dry and bright' : 'Mostly dry';
-  const swing = s.avgHi - s.avgLo;
-  const day = `${feel(s.avgHi)} days near ${Math.round(s.avgHi)}°C`;
-  const night = swing >= 12 ? `, with ${feel(s.avgLo)} nights around ${Math.round(s.avgLo)}°C` : `, nights around ${Math.round(s.avgLo)}°C`;
-  return `${sky}: ${day}${night}.`;
+  const sky = s.snowDays >= 2 ? 'שלג באוויר' : wetRatio >= 0.5 ? 'גשום לעתים קרובות' : wetRatio >= 0.25 ? 'הפכפך' : (s.kinds.clear || 0) >= n / 2 ? 'יבש ושמשי' : 'בעיקר יבש';
+  return `${sky}: ימים ${feel(s.avgHi)} סביב ${ltr(Math.round(s.avgHi) + '°')}, ולילות ${feel(s.avgLo)} סביב ${ltr(Math.round(s.avgLo) + '°')}.`;
 }
 
 export function toF(c) {

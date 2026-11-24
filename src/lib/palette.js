@@ -76,10 +76,10 @@ export function extractPalette(img, count = 4) {
   const out = chosen
     .sort((a, b) => a.lab[0] - b.lab[0])
     .map(x => ({ hex: hex(x.rgb), rgb: x.rgb, share: x.share / total, name: colorName(x.rgb) }));
-  // Two swatches with one name: call the darker "Deep" and the lighter "Pale".
+  // Two swatches with one name: mark the darker "כהה" and the lighter "בהיר".
   out.forEach((c, i) => {
     const j = out.findIndex((d, k) => k !== i && d.name === c.name);
-    if (j > i) { c.name = 'Deep ' + c.name.toLowerCase(); out[j].name = 'Pale ' + out[j].name.toLowerCase(); }
+    if (j > i) { c.name = c.name + ' כהה'; out[j].name = out[j].name + ' בהיר'; }
   });
   return out;
 }
@@ -100,31 +100,31 @@ function hsl([r, g, b]) {
 
 // Names a guide would print beside a swatch: [deep, mid, light] per hue family.
 const FAMILIES = [
-  [15, ['Oxblood', 'Brick', 'Rose']],
-  [40, ['Umber', 'Terracotta', 'Apricot']],
-  [65, ['Bronze', 'Ochre', 'Straw']],
-  [90, ['Olive', 'Lichen', 'Pistachio']],
-  [150, ['Forest', 'Moss', 'Sage']],
-  [190, ['Deep Teal', 'Teal', 'Seafoam']],
-  [230, ['Harbor', 'Sea', 'Sky']],
-  [265, ['Indigo', 'Cornflower', 'Periwinkle']],
-  [300, ['Aubergine', 'Violet', 'Lilac']],
-  [340, ['Plum', 'Orchid', 'Mauve']],
-  [361, ['Oxblood', 'Brick', 'Rose']],
+  [15, ['בורדו', 'לבנה', 'ורד']],
+  [40, ['קינמון', 'טרקוטה', 'משמש']],
+  [65, ['ברונזה', 'חרדל', 'קש']],
+  [90, ['זית', 'חזזית', 'פיסטוק']],
+  [150, ['יער', 'אזוב', 'מרווה']],
+  [190, ['ים עמוק', 'טורקיז', 'קצף ים']],
+  [230, ['נמל', 'ים', 'שמיים']],
+  [265, ['אינדיגו', 'דרדר', 'פריווינקל']],
+  [300, ['חציל', 'סגול', 'לילך']],
+  [340, ['שזיף', 'סחלב', 'סומק']],
+  [361, ['בורדו', 'לבנה', 'ורד']],
 ];
 const MUTED = {
-  Brick: 'Clay', Terracotta: 'Khaki', Ochre: 'Khaki', Straw: 'Sand', Apricot: 'Sand', Umber: 'Bark', Bronze: 'Bark',
-  Lichen: 'Sagebrush', Moss: 'Sage', Sea: 'Slate Blue', Sky: 'Haze', Teal: 'Eucalyptus', Rose: 'Blush', Orchid: 'Heather', Mauve: 'Dusk',
+  'לבנה': 'חימר', 'טרקוטה': 'חאקי', 'חרדל': 'חאקי', 'קש': 'חול', 'משמש': 'חול', 'קינמון': 'קליפת עץ', 'ברונזה': 'קליפת עץ',
+  'חזזית': 'שיח מדבר', 'אזוב': 'מרווה', 'ים': 'כחול צפחה', 'שמיים': 'אובך', 'טורקיז': 'אקליפטוס', 'ורד': 'אבקת ורדים', 'סחלב': 'אברש', 'סומק': 'דמדומים',
 };
 
 export function colorName(rgb) {
   const [h, s, l] = hsl(rgb);
   if (s < 0.1 || (l < 0.12) || (l > 0.94)) {
-    if (l < 0.16) return 'Charcoal';
-    if (l < 0.38) return 'Slate';
-    if (l < 0.62) return 'Stone';
-    if (l < 0.85) return 'Fog';
-    return 'Chalk';
+    if (l < 0.16) return 'פחם';
+    if (l < 0.38) return 'צפחה';
+    if (l < 0.62) return 'אבן';
+    if (l < 0.85) return 'ערפל';
+    return 'גיר';
   }
   const fam = FAMILIES.find(f => h < f[0])[1];
   const name = l < 0.3 ? fam[0] : l < 0.62 ? fam[1] : fam[2];

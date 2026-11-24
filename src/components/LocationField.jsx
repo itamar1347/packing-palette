@@ -41,10 +41,10 @@ export default function LocationField({ query, place, onQuery, onPick, error }) 
   const showList = open && (items.length > 0 || status === 'empty' || status === 'error');
   return (
     <div className="field field-dest">
-      <label htmlFor="dest">Destination</label>
+      <label htmlFor="dest">לאן?</label>
       <div className="combo">
         <input
-          id="dest" type="text" autoComplete="off" spellCheck="false" placeholder="City, Country"
+          id="dest" type="text" autoComplete="off" spellCheck="false" placeholder="עיר, מדינה"
           role="combobox" aria-autocomplete="list" aria-expanded={showList} aria-controls="dest-list"
           aria-activedescendant={showList && active >= 0 ? `dest-opt-${active}` : undefined}
           aria-invalid={error ? 'true' : undefined} aria-describedby={error ? 'dest-err' : undefined}
@@ -54,10 +54,10 @@ export default function LocationField({ query, place, onQuery, onPick, error }) 
           onFocus={() => items.length && setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 160)}
         />
-        {status === 'loading' && <span className="combo-hint" aria-hidden="true">Searching…</span>}
+        {status === 'loading' && <span className="combo-hint" aria-hidden="true">מחפשת…</span>}
         {place && !typed.current && <span className="combo-ok" aria-hidden="true">✓</span>}
         {showList && (
-          <ul className="combo-list" id="dest-list" role="listbox" aria-label="Matching places">
+          <ul className="combo-list" id="dest-list" role="listbox" aria-label="מקומות מתאימים">
             {items.map((p, i) => (
               <li
                 key={p.id} id={`dest-opt-${i}`} role="option" aria-selected={i === active}
@@ -69,8 +69,8 @@ export default function LocationField({ query, place, onQuery, onPick, error }) 
                 {p.detail && <span className="opt-detail">{p.detail}</span>}
               </li>
             ))}
-            {status === 'empty' && <li className="combo-note" role="presentation">No place by that name. Try the city in English.</li>}
-            {status === 'error' && <li className="combo-note" role="presentation">The place search is not answering. Try again in a moment.</li>}
+            {status === 'empty' && <li className="combo-note" role="presentation">לא מצאתי מקום בשם הזה. נסי לכתוב אחרת, או באנגלית.</li>}
+            {status === 'error' && <li className="combo-note" role="presentation">החיפוש לא עונה כרגע. נסי שוב בעוד רגע.</li>}
           </ul>
         )}
       </div>

@@ -1,21 +1,21 @@
 import { useState } from 'react';
 import { fmtCoords, placeCode } from '../lib/places.js';
-import { fmtRange, fmtShort, weekdayLetter } from '../lib/dates.js';
+import { fmtRange, fmtShort, weekdayLetter, MONTHS_HE, parseISO, ltr } from '../lib/dates.js';
 import { toF } from '../lib/weather.js';
 import { plugTypes } from '../lib/packing.js';
 import { luminance } from '../lib/palette.js';
 
-const ROMAN = ['I', 'II', 'III'];
+const NUMS = ['אחת', 'שתיים', 'שלוש'];
 
 function Plate({ images, index, setIndex, status, place, palette }) {
   const img = images[index];
   if (status === 'loading') {
-    return <div className="plate plate-empty"><p>Finding photographs of {place.name}…</p></div>;
+    return <div className="plate plate-empty"><p>מחפשת תמונות של {place.name}…</p></div>;
   }
   if (!img) {
     return (
       <div className="plate plate-empty">
-        <p>{status === 'error' ? 'Wikimedia did not answer, so there are no photographs this time.' : `No usable photographs of ${place.name} turned up.`}</p>
+        <p>{status === 'error' ? 'ויקימדיה לא ענתה הפעם, אז אין תמונות. נסי שוב עוד מעט.' : `לא מצאתי תמונות טובות של ${place.name}.`}</p>
       </div>
     );
   }
@@ -23,22 +23,22 @@ function Plate({ images, index, setIndex, status, place, palette }) {
     <figure className="plate">
       <div className="plate-frame">
         <img key={img.src} src={img.src} crossOrigin="anonymous" alt={img.caption} />
-        {palette === undefined && <span className="plate-reading">Reading colors…</span>}
+        {palette === undefined && <span className="plate-reading">קוראת את הצבעים…</span>}
       </div>
       <figcaption>
-        <span className="plate-cap">{img.caption}</span>
-        <a className="plate-credit" href={img.page} target="_blank" rel="noopener noreferrer">
-          {img.artist} · {img.license} · Wikimedia Commons
+        <span className="plate-cap" dir="auto">{img.caption}</span>
+        <a className="plate-credit" href={img.page} target="_blank" rel="noopener noreferrer" dir="ltr">
+          {img.artist}{img.license ? ` · ${img.license}` : ''} · Wikimedia Commons
         </a>
       </figcaption>
       {images.length > 1 && (
         <div className="plate-nav">
-          <button type="button" onClick={() => setIndex((index + images.length - 1) % images.length)} aria-label="Previous photograph and palette">
-            <span aria-hidden="true">←</span>
-          </button>
-          <span className="plate-count" aria-live="polite">Plate {ROMAN[index]} <span>of {ROMAN[images.length - 1]}</span></span>
-          <button type="button" onClick={() => setIndex((index + 1) % images.length)} aria-label="Next photograph and palette">
+          <button type="button" onClick={() => setIndex((index + images.length - 1) % images.length)} aria-label="התמונה והפלטה הקודמות">
             <span aria-hidden="true">→</span>
+          </button>
+          <span className="plate-count" aria-live="polite">תמונה {NUMS[index]} <span>מתוך {NUMS[images.length - 1]}</span></span>
+          <button type="button" onClick={() => setIndex((index + 1) % images.length)} aria-label="התמונה והפלטה הבאות">
+            <span aria-hidden="true">←</span>
           </button>
         </div>
       )}
@@ -48,22 +48,22 @@ function Plate({ images, index, setIndex, status, place, palette }) {
 
 function Swatches({ palette }) {
   const [copied, setCopied] = useState(null);
-  if (palette === undefined) return <ol className="swatches swatches-wait" aria-label="Palette loading">{[0, 1, 2, 3].map(i => <li key={i}><span className="sw-chip" /></li>)}</ol>;
-  if (!palette) return <p className="swatches-none">This photograph does not allow its colors to be read.</p>;
+  if (palette === undefined) return <ol className="swatches swatches-wait" aria-label="הפלטה נטענת">{[0, 1, 2, 3].map(i => <li key={i}><span className="sw-chip" /></li>)}</ol>;
+  if (!palette) return <p className="swatches-none">אי אפשר לקרוא את הצבעים של התמונה הזאת.</p>;
   const copy = async hex => {
     try { await navigator.clipboard.writeText(hex); setCopied(hex); setTimeout(() => setCopied(null), 1400); } catch { setCopied(null); }
   };
   return (
-    <ol className="swatches" aria-label="Destination palette">
+    <ol className="swatches" aria-label="פלטת הצבעים של היעד">
       {palette.map(c => {
         const dark = luminance(c.rgb) < 0.3;
         return (
-          <li key={c.hex} style={{ '--sw': c.hex, '--sw-ink': dark ? '#FBF8F1' : '#201D18', flexGrow: Math.max(0.6, c.share * 4) }}>
-            <button type="button" className="sw-chip" onClick={() => copy(c.hex)} aria-label={`${c.name} ${c.hex}, copy hex code`}>
-              <span className="sw-copy" aria-hidden="true">{copied === c.hex ? 'Copied' : 'Copy'}</span>
+          <li key={c.hex} style={{ '--sw': c.hex, '--sw-ink': dark ? '#FFF9F7' : '#3A1C2B' }}>
+            <button type="button" className="sw-chip" onClick={() => copy(c.hex)} aria-label={`${c.name} ${c.hex}, העתקת קוד הצבע`}>
+              <span className="sw-copy" aria-hidden="true">{copied === c.hex ? 'הועתק' : 'העתקה'}</span>
             </button>
             <span className="sw-name">{c.name}</span>
-            <span className="sw-hex">{c.hex}</span>
+            <span className="sw-hex" dir="ltr">{c.hex}</span>
           </li>
         );
       })}
@@ -78,11 +78,11 @@ function DayChart({ days }) {
   const span = Math.max(5, top - bottom);
   const y = t => ((t - bottom) / span) * 100;
   return (
-    <figure className="days" aria-label={`Daily highs and lows from ${fmtShort(days[0].date)} to ${fmtShort(days[days.length - 1].date)}`}>
-      <div className="days-axis" aria-hidden="true"><span>{top}°</span><span>{bottom}°</span></div>
+    <figure className="days" aria-label={`טמפרטורות יומיות מ-${fmtShort(days[0].date)} עד ${fmtShort(days[days.length - 1].date)}`}>
+      <div className="days-axis" aria-hidden="true"><span dir="ltr">{top}°</span><span dir="ltr">{bottom}°</span></div>
       <div className="days-bars">
         {days.map(d => (
-          <div className="day" key={d.date} title={`${fmtShort(d.date)}: ${Math.round(d.lo)}° to ${Math.round(d.hi)}°C${d.wetShare >= 0.5 ? ', likely wet' : ''}`}>
+          <div className="day" key={d.date} title={`${fmtShort(d.date)}: ${ltr(Math.round(d.lo) + '°')} עד ${ltr(Math.round(d.hi) + '°')}${d.wetShare >= 0.5 ? ', כנראה גשום' : ''}`}>
             <div className="day-track">
               <span className="day-bar" style={{ bottom: `${y(d.lo)}%`, height: `${Math.max(2, y(d.hi) - y(d.lo))}%` }} />
             </div>
@@ -99,33 +99,33 @@ function DayChart({ days }) {
 }
 
 function Weather({ weather }) {
-  if (weather.status === 'loading') return <div className="wx wx-wait"><p>Reading the weather records…</p></div>;
-  if (weather.status === 'error') return <div className="wx wx-wait"><p>{weather.error} The list below assumes mild weather until it loads.</p></div>;
+  if (weather.status === 'loading') return <div className="wx wx-wait"><p>קוראת את נתוני מזג האוויר…</p></div>;
+  if (weather.status === 'error') return <div className="wx wx-wait"><p>{weather.error} עד שזה ייטען, הרשימה למטה מניחה מזג אוויר נעים.</p></div>;
   const w = weather.data;
   const basis = w.mode === 'forecast'
-    ? 'Live forecast for your dates.'
-    : `Typical for these dates: what fell on the same days in ${w.years.join(', ')}.`;
+    ? 'תחזית חיה לתאריכים שלך.'
+    : `מה שהיה בפועל באותם תאריכים בשנים ${w.years.join(', ')}.`;
   return (
     <div className="wx">
       <p className="wx-head">{w.headline}</p>
       <dl className="wx-stats">
-        <div><dt>Avg high</dt><dd>{Math.round(w.avgHi)}°<small>{toF(w.avgHi)}°F</small></dd></div>
-        <div><dt>Avg low</dt><dd>{Math.round(w.avgLo)}°<small>{toF(w.avgLo)}°F</small></dd></div>
-        <div><dt>Wet days</dt><dd>{w.wetDays}<small>of {w.days.length}</small></dd></div>
-        <div><dt>Coldest</dt><dd>{Math.round(w.coldLo)}°<small>{toF(w.coldLo)}°F</small></dd></div>
+        <div><dt>חום ממוצע</dt><dd><span dir="ltr">{Math.round(w.avgHi)}°</span><small dir="ltr">{toF(w.avgHi)}°F</small></dd></div>
+        <div><dt>קור ממוצע</dt><dd><span dir="ltr">{Math.round(w.avgLo)}°</span><small dir="ltr">{toF(w.avgLo)}°F</small></dd></div>
+        <div><dt>ימי גשם</dt><dd><span>{w.wetDays}</span><small>מתוך {w.days.length}</small></dd></div>
+        <div><dt>הכי קר</dt><dd><span dir="ltr">{Math.round(w.coldLo)}°</span><small dir="ltr">{toF(w.coldLo)}°F</small></dd></div>
       </dl>
       <DayChart days={w.days} />
-      <p className="wx-basis">Each bar runs from the night low to the day high; a blue dot marks a wet day. {basis}</p>
+      <p className="wx-basis">כל עמודה היא יום, מהקור של הלילה ועד החום של היום. נקודה כחולה מסמנת יום גשום. {basis}</p>
     </div>
   );
 }
 
 export default function Pass({ trip, weather, images, index, setIndex, palette }) {
   const p = trip.place;
-  const code = placeCode(p.name);
+  const code = placeCode(p.nameEn || p.name);
   const no = trip.start.slice(5).replace('-', '') + '·' + code;
   const plug = plugTypes(p.countryCode);
-  const month = new Date(trip.start + 'T00:00:00Z').toLocaleString('en', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+  const d0 = parseISO(trip.start);
   return (
     <article className="pass" aria-labelledby="pass-dest">
       <div className="pass-main">
@@ -135,16 +135,16 @@ export default function Pass({ trip, weather, images, index, setIndex, palette }
       <div className="perf" aria-hidden="true" />
       <aside className="stub">
         <div className="stub-top">
-          <p className="stub-no">Pass No. {no}</p>
-          <div className="stamp" aria-hidden="true"><b>{code}</b><span>{month} {trip.start.slice(0, 4)}</span></div>
+          <p className="stub-no">כרטיס מס׳ <span dir="ltr">{no}</span></p>
+          <div className="stamp" aria-hidden="true"><b dir="ltr">{code}</b><span>{MONTHS_HE[d0.getUTCMonth()]} {d0.getUTCFullYear()}</span></div>
         </div>
         <h2 id="pass-dest" className="dest">{p.name}</h2>
-        <p className="dest-sub">{p.country} · {fmtCoords(p.lat, p.lon)}</p>
+        <p className="dest-sub">{p.country} · <span dir="ltr">{fmtCoords(p.lat, p.lon)}</span></p>
         <dl className="facts">
-          <div><dt>Dates</dt><dd>{fmtRange(trip.start, trip.end)}</dd></div>
-          <div><dt>Length</dt><dd>{trip.nights} night{trip.nights === 1 ? '' : 's'}</dd></div>
-          <div><dt>Plug</dt><dd>{plug ? `Type ${plug}` : 'Check locally'}</dd></div>
-          <div><dt>Plans</dt><dd>{trip.activityLabels.length ? trip.activityLabels.join(', ') : 'Nothing set'}</dd></div>
+          <div><dt>תאריכים</dt><dd>{fmtRange(trip.start, trip.end)}</dd></div>
+          <div><dt>אורך</dt><dd>{trip.nights === 0 ? 'יום אחד' : trip.nights === 1 ? 'לילה אחד' : `${trip.nights} לילות`}</dd></div>
+          <div><dt>שקע</dt><dd>{plug ? <>מסוג <span dir="ltr">{plug}</span></> : 'כדאי לבדוק'}</dd></div>
+          <div><dt>תוכניות</dt><dd>{trip.activityLabels.length ? trip.activityLabels.join(', ') : 'עוד לא נבחרו'}</dd></div>
         </dl>
         <Weather weather={weather} />
       </aside>

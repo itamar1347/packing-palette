@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import LocationField from './components/LocationField.jsx';
 import Pass from './components/Pass.jsx';
 import PackingList from './components/PackingList.jsx';
-import { EXAMPLE_PLACE, searchPlaces } from './lib/places.js';
+import SongOfTheDay from './components/SongOfTheDay.jsx';
+import { EXAMPLE_PLACE, searchPlaces, withEnglishName } from './lib/places.js';
 import { getTripWeather } from './lib/weather.js';
 import { getPlaceImages } from './lib/images.js';
 import { loadImage, extractPalette, accentFrom } from './lib/palette.js';
 import { ACTIVITIES, buildPackingList } from './lib/packing.js';
-import { addDays, diffDays, nextOccurrence } from './lib/dates.js';
+import { addDays, diffDays, nextOccurrence, ltr } from './lib/dates.js';
 
 const MAX_NIGHTS = 45;
 const exampleStart = nextOccurrence(7, 16);
@@ -41,8 +42,9 @@ export default function App() {
     setIndex(0);
     getTripWeather(trip.place, trip.start, trip.end, ctrl.signal)
       .then(data => id === run.current && setWeather({ status: 'ok', data }))
-      .catch(e => id === run.current && e.name !== 'AbortError' && setWeather({ status: 'error', error: e.message || 'The weather did not load.' }));
-    getPlaceImages(trip.place, ctrl.signal)
+      .catch(e => id === run.current && e.name !== 'AbortError' && setWeather({ status: 'error', error: e.message || 'מזג האוויר לא נטען.' }));
+    withEnglishName(trip.place, ctrl.signal)
+      .then(place => getPlaceImages(place, ctrl.signal))
       .then(r => id === run.current && setImages({ status: 'ok', list: r.images }))
       .catch(e => id === run.current && e.name !== 'AbortError' && setImages({ status: 'error', list: [] }));
     return () => ctrl.abort();
@@ -63,7 +65,7 @@ export default function App() {
 
   const current = images.list[index];
   const palette = current ? palettes[current.src] : null;
-  const accent = useMemo(() => accentFrom(palette) || '#4E5A34', [palette]);
+  const accent = useMemo(() => accentFrom(palette) || '#8E3B5F', [palette]);
   useEffect(() => { document.documentElement.style.setProperty('--accent', accent); }, [accent]);
 
   const groups = useMemo(() => buildPackingList(
@@ -83,10 +85,10 @@ export default function App() {
       setBusy(false);
       if (place) setForm(f => ({ ...f, place, query: place.label }));
     }
-    if (!place) errs.dest = form.query.trim() ? 'Pick a place from the suggestions, written as City, Country.' : 'Enter where you are going.';
-    if (!form.start || !form.end) errs.dates = 'Choose both travel dates.';
-    else if (form.end < form.start) errs.dates = 'The return date comes before the departure date.';
-    else if (diffDays(form.start, form.end) > MAX_NIGHTS) errs.dates = `Trips up to ${MAX_NIGHTS} nights work best here. Split a longer trip into legs.`;
+    if (!place) errs.dest = form.query.trim() ? 'בחרי מקום מהרשימה שנפתחת, בפורמט עיר, מדינה.' : 'לאן נוסעים? כתבי עיר או מדינה.';
+    if (!form.start || !form.end) errs.dates = 'בחרי את שני התאריכים.';
+    else if (form.end < form.start) errs.dates = 'תאריך החזרה יוצא לפני תאריך היציאה.';
+    else if (diffDays(form.start, form.end) > MAX_NIGHTS) errs.dates = `האתר עובד הכי טוב עד ${MAX_NIGHTS} לילות. אפשר לחלק טיול ארוך לכמה חלקים.`;
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setPacked(new Set());
@@ -98,39 +100,44 @@ export default function App() {
   const togglePacked = key => setPacked(s => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
 
   const w = weather.status === 'ok' ? weather.data : null;
-  const weatherNote = w ? `Sized for ${Math.round(w.avgHi)}°C days, ${Math.round(w.avgLo)}°C nights and ${w.wetDays} wet day${w.wetDays === 1 ? '' : 's'}.` : weather.status === 'loading' ? 'Weather still loading.' : 'Using mild-weather defaults.';
+  const weatherNote = w
+    ? `מותאם לימים של ${ltr(Math.round(w.avgHi) + '°')}, לילות של ${ltr(Math.round(w.avgLo) + '°')}${w.wetDays === 0 ? ' ובלי גשם' : w.wetDays === 1 ? ' ויום גשום אחד' : ` ו-${w.wetDays} ימים גשומים`}.`
+    : weather.status === 'loading' ? 'מזג האוויר עוד נטען.' : 'לפי מזג אוויר נעים, עד שהנתונים ייטענו.';
 
   return (
     <>
       <header className="masthead">
         <div className="wrap mast">
-          <p className="mast-name">Packing Palette</p>
-          <p className="mast-deck">A field guide for one trip: its weather, its colors, and what to bring.</p>
+          <p className="mast-name">פלטת <em>אריזה</em></p>
+          <p className="mast-deck">מדריך קטן לכל טיול של מיכל: מזג האוויר, הצבעים של המקום, ומה לשים במזוודה.</p>
         </div>
       </header>
 
       <main className="wrap">
-        <form className="slip" onSubmit={submit} noValidate aria-label="Trip details">
+        <SongOfTheDay />
+
+        <form className="slip" onSubmit={submit} noValidate aria-label="פרטי הטיול">
+          <p className="slip-title">לאן הפעם?</p>
           <LocationField
             query={form.query} place={form.place} error={errors.dest}
             onQuery={q => setForm(f => ({ ...f, query: q, place: null }))}
             onPick={p => setForm(f => ({ ...f, place: p, query: p.label }))}
           />
           <div className="field field-date">
-            <label htmlFor="start">Depart</label>
+            <label htmlFor="start">יציאה</label>
             <input id="start" type="date" value={form.start}
               onChange={e => setForm(f => ({ ...f, start: e.target.value, end: f.end && e.target.value && f.end < e.target.value ? e.target.value : f.end }))}
               aria-invalid={errors.dates ? 'true' : undefined} aria-describedby={errors.dates ? 'date-err' : undefined} />
           </div>
           <div className="field field-date">
-            <label htmlFor="end">Return</label>
+            <label htmlFor="end">חזרה</label>
             <input id="end" type="date" value={form.end} min={form.start || undefined}
               onChange={e => setForm(f => ({ ...f, end: e.target.value }))}
               aria-invalid={errors.dates ? 'true' : undefined} aria-describedby={errors.dates ? 'date-err' : undefined} />
           </div>
           {errors.dates && <p className="field-err field-err-dates" id="date-err">{errors.dates}</p>}
           <fieldset className="field field-acts">
-            <legend>Activities <span>optional</span></legend>
+            <legend>מה מתכננים לעשות? <span>לא חובה</span></legend>
             <div className="chips">
               {ACTIVITIES.map(a => (
                 <label key={a.id} className={`chip${form.activities.includes(a.id) ? ' is-on' : ''}`}>
@@ -141,8 +148,8 @@ export default function App() {
             </div>
           </fieldset>
           <div className="slip-go">
-            <button type="submit" className="go" disabled={busy}>{busy ? 'Finding the place…' : dirty ? 'Pack for this trip' : 'Refresh this trip'}</button>
-            {dirty && <span className="slip-note">Changes apply when you press the button.</span>}
+            <button type="submit" className="go" disabled={busy}>{busy ? 'מחפשת את המקום…' : dirty ? 'בואי נארוז לטיול הזה' : 'רענון הטיול'}</button>
+            {dirty && <span className="slip-note">השינויים יופיעו אחרי הלחיצה.</span>}
           </div>
         </form>
 
@@ -152,7 +159,7 @@ export default function App() {
       </main>
 
       <footer className="wrap foot">
-        <p>Weather from Open-Meteo (forecast within 16 days, otherwise the same dates in recent years). Photographs from Wikipedia and Wikimedia Commons, credited on each plate. Palettes are read from the photograph itself.</p>
+        <p>מזג האוויר מ-Open-Meteo: תחזית אם הטיול ב-16 הימים הקרובים, ואחרת מה שהיה באותם תאריכים בשנים האחרונות. התמונות מוויקיפדיה ומוויקימדיה, עם קרדיט מתחת לכל תמונה. הפלטה נקראת מהתמונה עצמה. השירים וקטעי ההאזנה מ-iTunes.</p>
       </footer>
     </>
   );
