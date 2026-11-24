@@ -21,15 +21,40 @@ function makeTrip(f) {
   };
 }
 
+// Kept in this browser only: the last trip she planned, and what she has already packed for each trip.
+const TRIP_KEY = 'pp-trip-v1';
+const PACKED_KEY = 'pp-packed-v1';
+function load(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } }
+function save(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode: lasts for this visit */ } }
+const tripId = t => `${t.place.id}|${t.start}|${t.end}`;
+const isDate = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+function savedTrip() {
+  const t = load(TRIP_KEY, null);
+  if (!t || !t.place || typeof t.place.lat !== 'number' || !t.place.label || !isDate(t.start) || !isDate(t.end) || t.end < t.start) return null;
+  return { place: t.place, start: t.start, end: t.end, activities: Array.isArray(t.activities) ? t.activities.filter(a => ACTIVITIES.some(x => x.id === a)) : [] };
+}
+function packedFor(t) { const all = load(PACKED_KEY, {}); return new Set(Array.isArray(all[tripId(t)]) ? all[tripId(t)] : []); }
+function savePacked(t, set) {
+  const all = load(PACKED_KEY, {});
+  delete all[tripId(t)];
+  all[tripId(t)] = [...set];
+  const keys = Object.keys(all);
+  keys.slice(0, Math.max(0, keys.length - 8)).forEach(k => delete all[k]); // keep the 8 most recent trips
+  save(PACKED_KEY, all);
+}
+
+const START = savedTrip() || EXAMPLE;
+const RESTORED = START !== EXAMPLE;
+
 export default function App() {
-  const [form, setForm] = useState({ query: EXAMPLE.place.label, place: EXAMPLE.place, start: EXAMPLE.start, end: EXAMPLE.end, activities: EXAMPLE.activities });
+  const [form, setForm] = useState({ query: START.place.label, place: START.place, start: START.start, end: START.end, activities: START.activities });
   const [errors, setErrors] = useState({});
-  const [trip, setTrip] = useState(() => makeTrip(EXAMPLE));
+  const [trip, setTrip] = useState(() => makeTrip(START));
   const [weather, setWeather] = useState({ status: 'loading' });
   const [images, setImages] = useState({ status: 'loading', list: [] });
   const [index, setIndex] = useState(0);
   const [palettes, setPalettes] = useState({});
-  const [packed, setPacked] = useState(() => new Set());
+  const [packed, setPacked] = useState(() => packedFor(START));
   const [busy, setBusy] = useState(false);
   const run = useRef(0);
 
@@ -91,13 +116,20 @@ export default function App() {
     else if (diffDays(form.start, form.end) > MAX_NIGHTS) errs.dates = `האתר עובד הכי טוב עד ${MAX_NIGHTS} לילות. אפשר לחלק טיול ארוך לכמה חלקים.`;
     setErrors(errs);
     if (Object.keys(errs).length) return;
-    setPacked(new Set());
-    setTrip(makeTrip({ ...form, place }));
+    const next = makeTrip({ ...form, place });
+    setPacked(packedFor(next));
+    setTrip(next);
+    save(TRIP_KEY, { place, start: form.start, end: form.end, activities: form.activities });
     requestAnimationFrame(() => document.getElementById('pass-dest')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' }));
   };
 
   const toggleAct = id => setForm(f => ({ ...f, activities: f.activities.includes(id) ? f.activities.filter(a => a !== id) : [...f.activities, id] }));
-  const togglePacked = key => setPacked(s => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
+  const togglePacked = key => setPacked(s => {
+    const n = new Set(s);
+    if (n.has(key)) n.delete(key); else n.add(key);
+    savePacked(trip, n);
+    return n;
+  });
 
   const w = weather.status === 'ok' ? weather.data : null;
   const weatherNote = w
@@ -118,6 +150,7 @@ export default function App() {
 
         <form className="slip" onSubmit={submit} noValidate aria-label="פרטי הטיול">
           <p className="slip-title">לאן הפעם?</p>
+          {RESTORED && <p className="slip-saved">הטיול האחרון שלך והפריטים שכבר ארזת נשמרו במכשיר הזה.</p>}
           <LocationField
             query={form.query} place={form.place} error={errors.dest}
             onQuery={q => setForm(f => ({ ...f, query: q, place: null }))}

@@ -136,6 +136,7 @@ main.wrap { padding-block: 26px 0; display: flex; flex-direction: column; gap: 3
   box-shadow: var(--shadow);
 }
 .slip-title { grid-column: 1 / -1; font-family: var(--f-display); font-size: 1.9rem; line-height: 1; color: var(--ink); }
+.slip-saved { grid-column: 1 / -1; margin-top: -8px; font-size: 0.92rem; color: var(--ink-2); }
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .field input[type="text"], .field input[type="date"] {
   width: 100%;
